@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LoadFlow — Freight Brokerage Ops</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{--navy:#0f2942;--blue:#1f6feb;--green:#1a7f4e;--red:#c0392b;--amber:#b7791f;--bg:#f4f6f8;--card:#ffffff;--border:#dde3ea;}
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);margin:0;color:#1c2733;}
+  header{background:var(--navy);color:#fff;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;}
+  header h1{font-size:19px;margin:0;font-weight:600;}
+  header .meta{font-size:13px;opacity:.85;}
+  #app{max-width:1180px;margin:0 auto;padding:20px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:18px;}
+  .card h2{margin-top:0;font-size:16px;color:var(--navy);}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;}
+  label{font-size:12px;color:#556;display:block;margin-bottom:3px;}
+  input,select,button,textarea{font-size:13px;padding:7px 9px;border-radius:5px;border:1px solid var(--border);}
+  input,select,textarea{min-width:120px;}
+  button{background:var(--blue);color:#fff;border:none;cursor:pointer;font-weight:600;}
+  button.secondary{background:#5a6b7c;}
+  button.danger{background:var(--red);}
+  button.small{padding:4px 8px;font-size:12px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px;}
+  th,td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:left;}
+  th{background:#eef2f6;font-size:11px;text-transform:uppercase;color:#556;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;color:#fff;}
+  .badge.Posted{background:#7f8c9a;} .badge.Carrier-Assigned{background:var(--amber);}
+  .badge.Rate-Confirmed{background:#2874a6;} .badge.Dispatched{background:#8e44ad;}
+  .badge.In-Transit{background:var(--blue);} .badge.Delivered{background:#16a085;}
+  .badge.POD-Verified{background:var(--green);} .badge.Invoiced-Closed{background:#2c3e50;}
+  .flag{color:var(--red);font-weight:700;}
+  .tabs{display:flex;gap:6px;margin-bottom:14px;}
+  .tabs button{background:#dfe6ee;color:#334;}
+  .tabs button.active{background:var(--navy);color:#fff;}
+  .msg{padding:8px 10px;border-radius:6px;font-size:13px;margin-bottom:10px;}
+  .msg.err{background:#fdecea;color:var(--red);}
+  .msg.ok{background:#eafaf1;color:var(--green);}
+  #authScreen{max-width:420px;margin:60px auto;}
+  a.link{color:var(--blue);cursor:pointer;font-size:12px;}
+  .hidden{display:none !important;}
+  .perm-chip{display:inline-block;background:#eef2f6;border:1px solid var(--border);border-radius:4px;padding:2px 6px;margin:2px;font-size:11px;cursor:pointer;}
+  .perm-chip.sel{background:var(--blue);color:#fff;}
+  small.hint{color:#889;font-size:11px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🚛 LoadFlow</h1>
+  <div class="meta" id="headerMeta"></div>
+</header>
+
+<div id="app">
+
+  <!-- AUTH -->
+  <div id="authScreen" class="card">
+    <div class="tabs" id="authTabs">
+      <button data-t="login" class="active">Login</button>
+      <button data-t="broker">Broker Signup</button>
+      <button data-t="carrier">Carrier Signup</button>
+      <button data-t="shipper">Shipper Signup</button>
+    </div>
+    <div id="authMsg"></div>
+
+    <div id="loginForm">
+      <div class="row">
+        <div><label>Email</label><input id="li_email"></div>
+        <div><label>Password</label><input id="li_pass" type="password"></div>
+        <div><button onclick="doLogin()">Log In</button></div>
+      </div>
+    </div>
+
+    <div id="brokerForm" class="hidden">
+      <p><small class="hint">Creates a brand-new Broker org + its first Admin account.</small></p>
+      <div class="row">
+        <div><label>Org Name</label><input id="bo_org"></div>
+        <div><label>Your Name</label><input id="bo_name"></div>
+      </div>
+      <div class="row">
+        <div><label>Email</label><input id="bo_email"></div>
+        <div><label>Password</label><input id="bo_pass" type="password"></div>
+        <div><button onclick="doRegisterOrg('broker')">Create Broker Org</button></div>
+      </div>
+    </div>
+
+    <div id="carrierForm" class="hidden">
+      <p><small class="hint">Creates a brand-new Carrier org + its first Admin account.</small></p>
+      <div class="row">
+        <div><label>Org Name</label><input id="co_org"></div>
+        <div><label>Your Name</label><input id="co_name"></div>
+      </div>
+      <div class="row">
+        <div><label>Email</label><input id="co_email"></div>
+        <div><label>Password</label><input id="co_pass" type="password"></div>
+        <div><button onclick="doRegisterOrg('carrier')">Create Carrier Org</button></div>
+      </div>
+    </div>
+
+    <div id="shipperForm" class="hidden">
+      <div class="row">
+        <div><label>Full Name</label><input id="sh_name"></div>
+        <div><label>Company (optional)</label><input id="sh_company"></div>
+      </div>
+      <div class="row">
+        <div><label>Email</label><input id="sh_email"></div>
+        <div><label>Password</label><input id="sh_pass" type="password"></div>
+        <div><button onclick="doRegisterShipper()">Create Shipper Account</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="mainScreen" class="hidden">
+    <div class="tabs" id="mainTabs"></div>
+    <div id="mainMsg"></div>
+    <div id="panelBoard"></div>
+    <div id="panelStaff" class="hidden"></div>
+    <div id="panelCompliance" class="hidden"></div>
+    <div id="panelAudit" class="hidden"></div>
+  </div>
+
+</div>
+
+<script>
+const API = "";
+let TOKEN = localStorage.getItem("lf_token") || null;
+let SESSION = JSON.parse(localStorage.getItem("lf_session") || "null");
+
+function headers(json=true){
+  const h = {};
+  if (TOKEN) h["Authorization"] = "Bearer " + TOKEN;
+  if (json) h["Content-Type"] = "application/json";
+  return h;
+}
+
+async function api(method, path, body, isForm=false){
+  const opts = { method, headers: isForm ? headers(false) : headers() };
+  if (body) opts.body = isForm ? body : JSON.stringify(body);
+  const res = await fetch(API + path, opts);
+  let data = null;
+  try { data = await res.json(); } catch(e) {}
+  if (!res.ok) throw new Error((data && data.detail) ? JSON.stringify(data.detail) : res.statusText);
+  return data;
+}
+
+// ---------------- AUTH SCREEN ----------------
+document.getElementById("authTabs").addEventListener("click", e=>{
+  if (e.target.tagName !== "BUTTON") return;
+  document.querySelectorAll("#authTabs button").forEach(b=>b.classList.remove("active"));
+  e.target.classList.add("active");
+  ["login","broker","carrier","shipper"].forEach(t=>{
+    document.getElementById(t+"Form")?.classList.add("hidden");
+  });
+  const map = {login:"loginForm", broker:"brokerForm", carrier:"carrierForm", shipper:"shipperForm"};
+  document.getElementById(map[e.target.dataset.t]).classList.remove("hidden");
+});
+
+function authMsg(text, ok=false){
+  document.getElementById("authMsg").innerHTML = `<div class="msg ${ok?'ok':'err'}">${text}</div>`;
+}
+
+async function doLogin(){
+  try{
+    const form = new URLSearchParams();
+    form.append("username", document.getElementById("li_email").value);
+    form.append("password", document.getElementById("li_pass").value);
+    const res = await fetch("/auth/login", {method:"POST", body: form});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Login failed");
+    setSession(data);
+  } catch(e){ authMsg(e.message); }
+}
+
+async function doRegisterOrg(orgType){
+  try{
+    const prefix = orgType === "broker" ? "bo" : "co";
+    const payload = {
+      org_name: document.getElementById(prefix+"_org").value,
+      org_type: orgType,
+      email: document.getElementById(prefix+"_email").value,
+      password: document.getElementById(prefix+"_pass").value,
+      full_name: document.getElementById(prefix+"_name").value,
+    };
+    const data = await api("POST", "/auth/register-org", payload);
+    setSession(data);
+  } catch(e){ authMsg(e.message); }
+}
+
+async function doRegisterShipper(){
+  try{
+    const payload = {
+      email: document.getElementById("sh_email").value,
+      password: document.getElementById("sh_pass").value,
+      full_name: document.getElementById("sh_name").value,
+      company_name: document.getElementById("sh_company").value,
+    };
+    const data = await api("POST", "/auth/register-shipper", payload);
+    setSession(data);
+  } catch(e){ authMsg(e.message); }
+}
+
+function setSession(data){
+  TOKEN = data.access_token;
+  SESSION = data;
+  localStorage.setItem("lf_token", TOKEN);
+  localStorage.setItem("lf_session", JSON.stringify(SESSION));
+  boot();
+}
+
+function logout(){
+  TOKEN = null; SESSION = null;
+  localStorage.removeItem("lf_token"); localStorage.removeItem("lf_session");
+  location.reload();
+}
+
+// ---------------- MAIN APP ----------------
+function hasPerm(p){
+  if (!SESSION) return false;
+  if (SESSION.is_admin) return true;
+  return (SESSION.permissions || []).includes(p);
+}
+
+function boot(){
+  if (!SESSION){ return; }
+  document.getElementById("authScreen").classList.add("hidden");
+  document.getElementById("mainScreen").classList.remove("hidden");
+  document.getElementById("headerMeta").innerHTML =
+    `${SESSION.full_name || SESSION.org_name || ''} · ${SESSION.account_type.toUpperCase()}${SESSION.is_admin? ' (Admin)':''}
+     &nbsp; <a class="link" style="color:#fff" onclick="logout()">Log out</a>`;
+
+  const tabs = [["board","Load Board"]];
+  if (SESSION.account_type !== "shipper") tabs.push(["staff","Staff & Roles"]);
+  if (SESSION.account_type !== "shipper") tabs.push(["compliance","Compliance"]);
+  if (SESSION.is_admin) tabs.push(["audit","Audit Log"]);
+
+  document.getElementById("mainTabs").innerHTML = tabs.map(([k,l],i)=>
+    `<button data-p="${k}" class="${i===0?'active':''}">${l}</button>`).join("");
+  document.getElementById("mainTabs").onclick = e=>{
+    if (e.target.tagName!=="BUTTON") return;
+    document.querySelectorAll("#mainTabs button").forEach(b=>b.classList.remove("active"));
+    e.target.classList.add("active");
+    ["board","staff","compliance","audit"].forEach(p=>document.getElementById("panel"+cap(p)).classList.add("hidden"));
+    document.getElementById("panel"+cap(e.target.dataset.p)).classList.remove("hidden");
+    renderPanel(e.target.dataset.p);
+  };
+  renderPanel("board");
+}
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+function mainMsg(text, ok=false){
+  document.getElementById("mainMsg").innerHTML = text? `<div class="msg ${ok?'ok':'err'}">${text}</div>` : "";
+  if (text) setTimeout(()=>document.getElementById("mainMsg").innerHTML="", 4500);
+}
+
+function renderPanel(p){
+  if (p==="board") renderBoard();
+  if (p==="staff") renderStaff();
+  if (p==="compliance") renderCompliance();
+  if (p==="audit") renderAudit();
+}
+
+// ---------- LOAD BOARD ----------
+async function renderBoard(){
+  const el = document.getElementById("panelBoard");
+  el.innerHTML = `<div class="card">Loading…</div>`;
+
+  let createFormHtml = "";
+  if (SESSION.account_type === "broker" && hasPerm("load.create")){
+    const shippers = await api("GET","/orgs/shippers").catch(()=>[]);
+    createFormHtml = `
+      <div class="card">
+        <h2>Post a New Load</h2>
+        <div class="row">
+          <div><label>Shipper</label><select id="nl_shipper">${shippers.map(s=>`<option value="${s.id}">${s.company_name||s.full_name||s.email}</option>`).join("")}</select></div>
+          <div><label>Origin</label><input id="nl_origin" placeholder="City, ST"></div>
+          <div><label>Destination</label><input id="nl_dest" placeholder="City, ST"></div>
+          <div><label>Equipment</label>
+            <select id="nl_equip"><option>Dry Van</option><option>Reefer</option><option>Flatbed</option><option>Step Deck</option></select></div>
+          <div><label>Commodity</label>
+            <select id="nl_commodity"><option>General</option><option>Frozen</option><option>Hazmat</option><option>Produce</option></select></div>
+          <div><button onclick="createLoad()">Post Load</button></div>
+        </div>
+      </div>`;
+  }
+
+  let filterHtml = "";
+  if (SESSION.account_type === "broker"){
+    filterHtml = `
+      <div class="card">
+        <h2>Search / Filter</h2>
+        <div class="row">
+          <div><label>Status</label><select id="f_status"><option value="">Any</option>
+            ${["Posted","Carrier Assigned","Rate Confirmed","Dispatched","In Transit","Delivered","POD Verified","Invoiced/Closed"].map(s=>`<option>${s}</option>`).join("")}</select></div>
+          <div><label>Origin contains</label><input id="f_origin"></div>
+          <div><label>Destination contains</label><input id="f_dest"></div>
+          <div><label>Flagged only</label><select id="f_flag"><option value="">Any</option><option value="true">Yes</option><option value="false">No</option></select></div>
+          <div><button onclick="renderBoard()">Apply</button></div>
+        </div>
+      </div>`;
+  }
+
+  el.innerHTML = createFormHtml + filterHtml + `<div class="card"><h2>Loads</h2><div id="loadsTable">Loading…</div></div>`;
+  await loadLoadsTable();
+}
+
+async function loadLoadsTable(){
+  let qs = "";
+  if (SESSION.account_type === "broker"){
+    const params = new URLSearchParams();
+    const st = document.getElementById("f_status")?.value;
+    const org = document.getElementById("f_origin")?.value;
+    const dst = document.getElementById("f_dest")?.value;
+    const fl = document.getElementById("f_flag")?.value;
+    if (st) params.append("status", st);
+    if (org) params.append("origin", org);
+    if (dst) params.append("destination", dst);
+    if (fl) params.append("compliance_flag", fl);
+    qs = "?" + params.toString();
+  }
+  let loads;
+  try { loads = await api("GET", "/loads" + qs); }
+  catch(e){ document.getElementById("loadsTable").innerHTML = `<div class="msg err">${e.message}</div>`; return; }
+
+  if (!loads.length){ document.getElementById("loadsTable").innerHTML = "<p><small>No loads found.</small></p>"; return; }
+
+  const rows = loads.map(l => rowForLoad(l)).join("");
+  document.getElementById("loadsTable").innerHTML = `
+    <table><thead><tr>
+      <th>ID</th><th>Route</th><th>Equip/Commodity</th><th>Status</th><th>Compliance</th><th>Actions</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function rowForLoad(l){
+  const badgeCls = l.status.replace(/\//g,'-').replace(/ /g,'-');
+  const flag = l.compliance_flag ? `<span class="flag">⚠ ${l.compliance_flag_reason}</span>` : "OK";
+  let actions = `<button class="small secondary" onclick="viewHistory(${l.id})">History</button>`;
+
+  if (SESSION.account_type === "broker"){
+    if (l.status === "Posted" && hasPerm("load.assign_carrier")) actions += ` <button class="small" onclick="assignCarrier(${l.id})">Assign Carrier</button>`;
+    if (l.status === "Carrier Assigned" && hasPerm("rate.confirm") && !l.compliance_flag) actions += ` <button class="small" onclick="confirmRate(${l.id})">Confirm Rate</button>`;
+    if (l.compliance_flag && hasPerm("load.override_compliance_flag")) actions += ` <button class="small danger" onclick="overrideFlag(${l.id})">Override Flag</button>`;
+    if (hasPerm("load.update_status")) actions += nextStatusButton(l);
+  }
+  if (SESSION.account_type === "carrier"){
+    if (l.status === "Carrier Assigned" && hasPerm("load.accept_decline")) actions += ` <button class="small danger" onclick="declineLoad(${l.id})">Decline</button>`;
+    if (hasPerm("load.update_status")) actions += nextStatusButton(l);
+    if (hasPerm("pod.upload") && ["In Transit","Delivered"].includes(l.status)) actions += ` <button class="small" onclick="uploadPod(${l.id})">Upload POD</button>`;
+  }
+
+  return `<tr>
+    <td>#${l.id}</td>
+    <td>${l.origin} → ${l.destination}</td>
+    <td>${l.equipment_type} / ${l.commodity_type}</td>
+    <td><span class="badge ${badgeCls}">${l.status}</span></td>
+    <td>${flag}</td>
+    <td>${actions}</td>
+  </tr>`;
+}
+
+const STATE_ORDER = ["Posted","Carrier Assigned","Rate Confirmed","Dispatched","In Transit","Delivered","POD Verified","Invoiced/Closed"];
+function nextStatusButton(l){
+  // "Posted -> Carrier Assigned" happens via Assign Carrier, and
+  // "Carrier Assigned -> Rate Confirmed" happens via Confirm Rate — both have
+  // dedicated buttons above. Every later forward step (Rate Confirmed ->
+  // Dispatched -> In Transit -> Delivered -> POD Verified -> Invoiced/Closed)
+  // uses this generic "mark next status" button.
+  const idx = STATE_ORDER.indexOf(l.status);
+  if (idx < 0 || idx === STATE_ORDER.length - 1) return "";
+  if (idx < STATE_ORDER.indexOf("Rate Confirmed")) return "";
+  const next = STATE_ORDER[idx+1];
+  return ` <button class="small" onclick="advanceStatus(${l.id}, '${next}')">Mark: ${next}</button>`;
+}
+
+async function createLoad(){
+  try{
+    await api("POST","/loads",{
+      shipper_id: parseInt(document.getElementById("nl_shipper").value),
+      origin: document.getElementById("nl_origin").value,
+      destination: document.getElementById("nl_dest").value,
+      equipment_type: document.getElementById("nl_equip").value,
+      commodity_type: document.getElementById("nl_commodity").value,
+    });
+    mainMsg("Load posted.", true);
+    renderBoard();
+  } catch(e){ mainMsg(e.message); }
+}
+
+async function assignCarrier(id){
+  const carriers = await api("GET","/orgs/carriers").catch(()=>[]);
+  if (!carriers.length){ mainMsg("No carrier orgs exist yet."); return; }
+  const names = carriers.map(c=>`${c.id}: ${c.name}`).join("\\n");
+  const idStr = prompt("Enter carrier org ID to assign:\\n" + names);
+  if (!idStr) return;
+  try{
+    await api("POST", `/loads/${id}/assign-carrier`, {carrier_org_id: parseInt(idStr)});
+    mainMsg("Carrier assigned.", true);
+    loadLoadsTable();
+  } catch(e){ mainMsg(e.message); }
+}
+
+async function declineLoad(id){
+  try{ await api("POST", `/loads/${id}/decline`, {}); mainMsg("Load declined.", true); loadLoadsTable(); }
+  catch(e){ mainMsg(e.message); }
+}
+
+async function confirmRate(id){
+  const base = prompt("Base rate ($):");
+  if (base === null) return;
+  const accName = prompt("Accessorial name (blank to skip):");
+  let accessorials = [];
+  if (accName){
+    const amt = prompt("Accessorial amount ($):");
+    accessorials.push({name: accName, amount: parseFloat(amt)||0});
+  }
+  try{
+    await api("POST", `/loads/${id}/rate-confirm`, {base_rate: parseFloat(base), accessorials});
+    mainMsg("Rate confirmed (new version created).", true);
+    loadLoadsTable();
+  } catch(e){ mainMsg(e.message); }
+}
+
+async function overrideFlag(id){
+  const note = prompt("Override justification:") || "";
+  try{ await api("POST", `/loads/${id}/override-compliance`, {note}); mainMsg("Compliance flag overridden.", true); loadLoadsTable(); }
+  catch(e){ mainMsg(e.message); }
+}
+
+async function advanceStatus(id, to){
+  try{ await api("POST", `/loads/${id}/status`, {to_status: to, note: ""}); mainMsg(`Status → ${to}`, true); loadLoadsTable(); }
+  catch(e){ mainMsg(e.message); }
+}
+
+async function uploadPod(id){
+  const input = document.createElement("input");
+  input.type = "file";
+  input.onchange = async ()=>{
+    const fd = new FormData();
+    fd.append("file", input.files[0]);
+    try{
+      const res = await fetch(`/loads/${id}/pod`, {method:"POST", headers: headers(false), body: fd});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail);
+      mainMsg("POD uploaded.", true);
+      loadLoadsTable();
+    } catch(e){ mainMsg(e.message); }
+  };
+  input.click();
+}
+
+async function viewHistory(id){
+  try{
+    const hist = await api("GET", `/loads/${id}/history`);
+    const lines = hist.map(h=>`${new Date(h.timestamp).toLocaleString()} — ${h.from_status||'—'} → ${h.to_status} (by user #${h.changed_by_user_id})${h.note? ' — '+h.note:''}`).join("\\n");
+    alert("Audit trail for Load #"+id+":\\n\\n"+(lines || "No history."));
+  } catch(e){ mainMsg(e.message); }
+}
+
+// ---------- STAFF & ROLES ----------
+async function renderStaff(){
+  const el = document.getElementById("panelStaff");
+  el.innerHTML = `<div class="card">Loading…</div>`;
+  const catalog = await api("GET","/orgs/permission-catalog").catch(()=>[]);
+  const roles = await api("GET","/orgs/roles").catch(()=>[]);
+  const staff = await api("GET","/orgs/staff").catch(()=>[]);
+
+  let roleCreateHtml = "";
+  if (SESSION.is_admin){
+    roleCreateHtml = `
+      <div class="card">
+        <h2>Create Custom Role</h2>
+        <div class="row"><div><label>Role Name</label><input id="role_name"></div></div>
+        <div style="margin:8px 0;">${catalog.map(p=>`<span class="perm-chip" data-p="${p}" onclick="this.classList.toggle('sel')">${p}</span>`).join("")}</div>
+        <button onclick="createRole()">Create Role</button>
+      </div>`;
+  }
+
+  let inviteHtml = "";
+  if (SESSION.is_admin){
+    inviteHtml = `
+      <div class="card">
+        <h2>Invite Staff</h2>
+        <div class="row">
+          <div><label>Full Name</label><input id="st_name"></div>
+          <div><label>Email</label><input id="st_email"></div>
+          <div><label>Password</label><input id="st_pass" type="password"></div>
+          <div><label>Role</label><select id="st_role">${roles.map(r=>`<option value="${r.id}">${r.name}</option>`).join("")}</select></div>
+          <div><label>Also Admin?</label><select id="st_admin"><option value="false">No</option><option value="true">Yes</option></select></div>
+          <div><button onclick="inviteStaff()">Invite</button></div>
+        </div>
+      </div>`;
+  }
+
+  const rolesTable = `<div class="card"><h2>Roles in Your Org</h2><table><thead><tr><th>Name</th><th>Permissions</th></tr></thead><tbody>
+      ${roles.map(r=>`<tr><td>${r.name}</td><td>${(r.permissions||[]).map(p=>`<span class="perm-chip">${p}</span>`).join(" ")}</td></tr>`).join("")}
+    </tbody></table></div>`;
+
+  const staffTable = `<div class="card"><h2>Staff</h2><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Admin</th></tr></thead><tbody>
+      ${staff.map(s=>`<tr><td>${s.full_name}</td><td>${s.email}</td><td>${roles.find(r=>r.id===s.role_id)?.name||'—'}</td><td>${s.is_admin?'Yes':'No'}</td></tr>`).join("")}
+    </tbody></table></div>`;
+
+  el.innerHTML = roleCreateHtml + inviteHtml + rolesTable + staffTable;
+}
+
+async function createRole(){
+  const name = document.getElementById("role_name").value;
+  const perms = Array.from(document.querySelectorAll(".perm-chip.sel")).map(c=>c.dataset.p);
+  try{ await api("POST","/orgs/roles", {name, permissions: perms}); mainMsg("Role created.", true); renderStaff(); }
+  catch(e){ mainMsg(e.message); }
+}
+
+async function inviteStaff(){
+  try{
+    await api("POST","/orgs/staff", {
+      email: document.getElementById("st_email").value,
+      password: document.getElementById("st_pass").value,
+      full_name: document.getElementById("st_name").value,
+      role_id: parseInt(document.getElementById("st_role").value),
+      is_admin: document.getElementById("st_admin").value === "true",
+    });
+    mainMsg("Staff invited.", true);
+    renderStaff();
+  } catch(e){ mainMsg(e.message); }
+}
+
+// ---------- COMPLIANCE ----------
+async function renderCompliance(){
+  const el = document.getElementById("panelCompliance");
+  el.innerHTML = `<div class="card">Loading…</div>`;
+
+  if (SESSION.account_type === "carrier"){
+    let existing = null;
+    try{ existing = await api("GET", `/compliance/${SESSION.org_id}`); } catch(e){}
+    el.innerHTML = `
+      <div class="card">
+        <h2>Our Compliance Record</h2>
+        <div class="row">
+          <div><label>Insurance Expiry</label><input id="cp_expiry" type="date" value="${existing?.insurance_expiry ? existing.insurance_expiry.substring(0,10) : ''}"></div>
+          <div><label>Authority Status</label><select id="cp_authority">
+            ${["active","inactive","pending"].map(s=>`<option ${existing?.authority_status===s?'selected':''}>${s}</option>`).join("")}</select></div>
+          <div><label>Approved Equipment (comma-sep)</label><input id="cp_equip" value="${(existing?.approved_equipment||[]).join(', ')}"></div>
+          <div><label>Approved Commodities (comma-sep)</label><input id="cp_commodity" value="${(existing?.approved_commodities||[]).join(', ')}"></div>
+          <div><button onclick="saveCompliance()">Save</button></div>
+        </div>
+        <p><small class="hint">This record drives auto-flagging on any load assigned to us. Expired insurance, inactive authority, or unapproved equipment/commodity blocks progression past "Carrier Assigned".</small></p>
+      </div>`;
+  } else if (SESSION.account_type === "broker"){
+    const records = await api("GET","/compliance").catch(()=>[]);
+    const now = new Date();
+    const rows = records.map(r=>{
+      const exp = r.insurance_expiry ? new Date(r.insurance_expiry) : null;
+      const soon = exp && (exp - now) < 1000*60*60*24*30 && (exp - now) > 0;
+      const expired = exp && exp < now;
+      return `<tr>
+        <td>Org #${r.carrier_org_id}</td>
+        <td>${exp ? exp.toLocaleDateString() : '—'} ${expired?'<span class="flag">EXPIRED</span>':soon?'<span class="flag">EXPIRES SOON</span>':''}</td>
+        <td>${r.authority_status}</td>
+        <td>${(r.approved_equipment||[]).join(', ')}</td>
+        <td>${(r.approved_commodities||[]).join(', ')}</td>
+      </tr>`;
+    }).join("");
+    el.innerHTML = `<div class="card"><h2>Carrier Compliance (Marketplace View)</h2>
+      <table><thead><tr><th>Carrier</th><th>Insurance Expiry</th><th>Authority</th><th>Equipment</th><th>Commodities</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan=5><small>No records yet.</small></td></tr>'}</tbody></table></div>`;
+  }
+}
+
+async function saveCompliance(){
+  try{
+    const expiry = document.getElementById("cp_expiry").value;
+    await api("POST","/compliance", {
+      carrier_org_id: SESSION.org_id,
+      insurance_expiry: expiry ? new Date(expiry).toISOString() : null,
+      authority_status: document.getElementById("cp_authority").value,
+      approved_equipment: document.getElementById("cp_equip").value.split(",").map(s=>s.trim()).filter(Boolean),
+      approved_commodities: document.getElementById("cp_commodity").value.split(",").map(s=>s.trim()).filter(Boolean),
+    });
+    mainMsg("Compliance record saved.", true);
+    renderCompliance();
+  } catch(e){ mainMsg(e.message); }
+}
+
+// ---------- AUDIT ----------
+async function renderAudit(){
+  const el = document.getElementById("panelAudit");
+  el.innerHTML = `<div class="card">Loading…</div>`;
+  const logs = await api("GET","/audit/denied-log").catch(()=>[]);
+  el.innerHTML = `<div class="card"><h2>Permission-Denied Attempts (your org)</h2>
+    <table><thead><tr><th>When</th><th>User</th><th>Endpoint</th><th>Required</th><th>Reason</th></tr></thead><tbody>
+    ${logs.map(l=>`<tr><td>${new Date(l.timestamp).toLocaleString()}</td><td>${l.email}</td><td>${l.endpoint}</td><td>${l.permission_required}</td><td>${l.reason}</td></tr>`).join("") || '<tr><td colspan=5><small>None yet.</small></td></tr>'}
+    </tbody></table></div>`;
+}
+
+boot();
+</script>
+</body>
+</html>
